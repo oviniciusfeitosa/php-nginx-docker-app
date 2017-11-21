@@ -1,0 +1,91 @@
+version: '2'
+services:
+  webserver:
+    user: $UID
+    build: docker/webserver
+    image: vinnyfs89/phpunit_webserver:1.0
+    container_name: phpunit_webserver
+    volumes:
+      - ./docker/webserver/nginx/conf.d:/etc/nginx/conf.d
+      - ./app/frontend:/frontend
+      - ./app/backend:/backend
+      - ./app/log:/var/log/nginx/
+    ports:
+      - "80:80"
+      - "8080:8080"
+    environment:
+      - UID=vinnyfs89
+      - NGINX_HOST=localhost
+    links:
+      - php-fpm
+  php-fpm:
+    user: $UID
+    build: docker/php_fpm
+    image: vinnyfs89/phpunit_backend:1.0
+    container_name: phpunit_backend
+    ports:
+      - "9000"
+      - "9001"
+    volumes:
+      - ./app/backend/:/backend
+    environment:
+      - UID=vinnyfs89
+      
+     # CONFIG DATABASE
+      - DB_DRIVER=mysql
+      - DB_NAME=phpunit
+      - DB_HOST=database-mysql-dns
+      - DB_USERNAME=admin
+      - DB_PASSWORD=admin
+      - DB_DATABASE=phpunit
+      - DB_COLLATION=utf8_unicode_ci
+      - DB_CHARSET=utf8
+      - DB_PREFIX=
+
+     # xDebug configs for 'development' enviroment
+      - XDEBUG_INSTALL="true"
+      - XDEBUG_REMOTE_ENABLE=on
+      - XDEBUG_REMOTE_AUTOSTART=on
+      - XDEBUG_REMOTE_HANDLER=dbgp
+      - XDEBUG_REMOTE_CONNECT_BACK=1
+      - XDEBUG_PROFILER_ENABLE=1
+      - XDEBUG_PROFILER_OUTPUT_DIR=/tmp/www/html
+      - XDEBUG_REMOTE_PORT=9001
+      - XDEBUGINI_PATH=/usr/local/etc/php/conf.d/xdebug.ini
+      - XDEBUG_DEFAULT_ENABLE=1
+      - XDEBUG_IDEKEY=PHPSTORM
+    links:
+      - database
+    external_links:
+      - phpunit-database:database-mysql-dns
+
+  database:
+    image: mysql:latest
+    container_name: phpunit-database
+    volumes:
+      - ./app/database/mysql/conf.d:/etc/mysql/conf.d
+      - ./app/database/mysql/data:/var/lib/mysql
+      - ./app/database/mysql/log:/var/log/
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+      - MYSQL_ROOT_HOST=0.0.0.0
+      - MYSQL_DATABASE=skeleton
+      - MYSQL_USER=admin
+      - MYSQL_PASSWORD=admin
+      - right=WRITE
+
+  dependency_manager:
+    user: $UID
+    image: composer:1.5.1
+    restart: 'no'
+    container_name: 'phpunit_composer'
+    command: install
+    environment:
+      - UID=vinnyfs89
+    volumes:
+      - $PWD/app/backend:/app
+      # Share user and group
+      - /etc/passwd:/etc/passwd:ro
+      - /etc/group:/etc/group:ro
